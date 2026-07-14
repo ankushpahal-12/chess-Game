@@ -12,8 +12,9 @@ export function useHiddenChat(session: ChatSession) {
     return unsubscribe;
   }, [session]);
 
-  const open = useCallback(() => session.open(), [session]);
+  const open  = useCallback(() => session.open(),  [session]);
   const close = useCallback(() => session.close(), [session]);
+  const wipe  = useCallback(() => session.wipe(),  [session]);
 
   const sendMessage = useCallback(
     async (text: string): Promise<boolean> => session.sendMessage(text),
@@ -26,14 +27,16 @@ export function useHiddenChat(session: ChatSession) {
   );
 
   return {
-    uiState: snapshot.uiState,
-    cryptoState: snapshot.cryptoState,
-    messages: snapshot.messages,
-    draft: snapshot.draft,
+    uiState:         snapshot.uiState,
+    cryptoState:     snapshot.cryptoState,
+    messages:        snapshot.messages,
+    draft:           snapshot.draft,
     socketConnected: snapshot.socketConnected,
-    safetyNumber: snapshot.safetyNumber,
+    safetyNumber:    snapshot.safetyNumber,
+    unreadCount:     snapshot.unreadCount,
     open,
     close,
+    wipe,
     sendMessage,
     setDraft,
   };

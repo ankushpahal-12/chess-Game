@@ -66,6 +66,7 @@ export const ChessBoardWrapper: React.FC<ChessBoardWrapperProps> = ({
     isMyTurn,
     isBoardBusy: isBoardAnimating || !!pendingPromotion,
     isBlocked,
+    isGameOver,
     boardContainerRef: boardRef,
     onLockTapped: () => chatSession.open(),
     fen,
@@ -232,6 +233,7 @@ export const ChessBoardWrapper: React.FC<ChessBoardWrapperProps> = ({
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     onPointerMove(e.clientX, e.clientY);
   };
+
 
   return (
     <div className="flex items-center justify-center p-2 bg-slate-950/40 rounded-3xl border border-slate-800/80 shadow-2xl relative">

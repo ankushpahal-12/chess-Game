@@ -154,6 +154,18 @@ export class CryptoService {
 
   // ─── Cleanup ─────────────────────────────────────────────────────────────
 
+  /**
+   * Resets the crypto state back to INACTIVE so a fresh handshake can start.
+   * Unlike destroy(), this keeps listeners intact and does NOT permanently close the session.
+   */
+  public reset(): void {
+    this.clearHandshakeTimer();
+    this.keyManager.destroy();
+    this.retryCount = 0;
+    this._retryPublicKey = null;
+    this.setState('INACTIVE');
+  }
+
   public destroy(): void {
     this.clearHandshakeTimer();
     this.keyManager.destroy();

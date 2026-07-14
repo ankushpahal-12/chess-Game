@@ -13,6 +13,7 @@ export interface ChatSessionSnapshot {
   draft: string;
   socketConnected: boolean;
   safetyNumber: string | null;
+  unreadCount: number;
 }
 
 export class ChatSession {
@@ -24,6 +25,8 @@ export class ChatSession {
 
   private _uiState: ChatUIState = 'CLOSED';
   private _socketConnected: boolean = socket.connected;
+  private _destroyed: boolean = false;
+  private _unreadCount: number = 0;
 
   private listeners: ChatSessionListener[] = [];
 
@@ -66,6 +69,7 @@ export class ChatSession {
       draft: this.messages.draft,
       socketConnected: this._socketConnected,
       safetyNumber: this.crypto.safetyNumber,
+      unreadCount: this._unreadCount,
     };
   }
 
@@ -96,14 +100,37 @@ export class ChatSession {
   }
 
   public open(): void {
+    if (this._destroyed) {
+      console.warn('[ChatSession] Cannot open — session has been destroyed (game ended).');
+      return;
+    }
+    this._unreadCount = 0; // clear badge when chat is opened
     this.setUIState('OPEN');
-    if (this.crypto.state === 'INACTIVE') {
+    const restartable = ['INACTIVE', 'FAILED', 'DESTROYED'];
+    if (restartable.includes(this.crypto.state)) {
+      if (this.crypto.state !== 'INACTIVE') this.crypto.reset();
       void this.startHandshake();
     }
   }
 
   public close(): void {
     this.setUIState('MINIMIZED');
+  }
+
+  /**
+   * Panic / wipe: instantly clears all messages and crypto keys.
+   * Emits secure_close to the peer. Session socket listeners remain active
+   * so the chat can be reopened with a fresh handshake.
+   */
+  public wipe(): void {
+    if (this._socketConnected) {
+      socket.emit('secure_close', { code: this.roomCode });
+    }
+    this.crypto.reset();
+    this.messages.clear();
+    this._unreadCount = 0;
+    this._uiState = 'CLOSED';
+    this.notify();
   }
 
   // ─── Messaging ───────────────────────────────────────────────────────────
@@ -185,25 +212,37 @@ export class ChatSession {
   }) => {
     if (!data.payload) return;
 
+    // Reject packets from a previous handshake session
     if (
       data.version !== undefined &&
       !this.crypto.isCurrentVersion(data.version)
     ) {
-      console.warn('[ChatSession] Ignoring stale packet (version mismatch).');
+      // Expected after a crypto reset — old packets still in flight
       return;
     }
+
+    // Also silently drop if crypto is not ready (e.g. mid-reset race window)
+    if (this.crypto.state !== 'READY') return;
 
     try {
       const plaintext = await this.crypto.decrypt(data.payload, this.roomCode);
       this.messages.addMessage(plaintext, 'opponent');
-    } catch (err) {
-      console.error('[ChatSession] Decryption error:', err);
+      // Increment unread badge if chat drawer is not currently open
+      if (this._uiState !== 'OPEN') {
+        this._unreadCount += 1;
+      }
+    } catch {
+      // OperationError here means the packet arrived during a key rotation window.
+      // It is safe to discard — the sender will not retransmit.
     }
   };
 
   private handleSecureClose = (): void => {
-    console.log('[ChatSession] Peer closed secure session.');
-    this.destroy();
+    console.log('[ChatSession] Peer closed secure session — resetting for next open.');
+    // Reset crypto only (not the whole session) so the user can reopen chat.
+    this.crypto.reset();
+    this._uiState = 'CLOSED';
+    this.notify();
   };
 
   // ─── Internal Helpers ────────────────────────────────────────────────────
@@ -221,6 +260,9 @@ export class ChatSession {
   // ─── Explicit Cleanup ────────────────────────────────────────────────────
 
   public destroy(): void {
+    if (this._destroyed) return; // already cleaned up
+    this._destroyed = true;
+
     if (this._socketConnected) {
       socket.emit('secure_close', { code: this.roomCode });
     }

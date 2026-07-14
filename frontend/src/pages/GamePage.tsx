@@ -59,9 +59,11 @@ export const GamePage: React.FC<GamePageProps> = ({
     };
   }, [chatSession]);
 
-  // Secure Chat state cleanup on game over or opponent disconnect (session expiration/wiping)
+  // Only destroy the session when the game is definitively over.
+  // !opponentConnected is intentionally NOT a destroy trigger — it is temporary
+  // and the session reconnects automatically via its socket listeners.
   React.useEffect(() => {
-    if (isGameOver || !opponentConnected || code === 'OFFLINE') {
+    if (isGameOver) {
       chatSession.destroy();
     }
   }, [isGameOver, opponentConnected, code, chatSession]);

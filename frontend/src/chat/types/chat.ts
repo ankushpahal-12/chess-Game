@@ -19,40 +19,12 @@ export interface SecureMessage {
   receivedAt: Date;
 }
 
-// ─────────────────────────────────────────────
-// Activation State Machine
-// ─────────────────────────────────────────────
-
-/**
- * Tracks the physical gesture sequence that reveals the hidden lock icon.
- *
- * INACTIVE ──► HOLDING ──► LOCK_VISIBLE
- *     ▲                        │
- *     └────────────────────────┘  (lock tapped, dismissed, or cooldown reset)
- */
 export type ActivationState = 'INACTIVE' | 'HOLDING' | 'LOCK_VISIBLE';
 
 // ─────────────────────────────────────────────
 // Crypto Session State Machine
-// ─────────────────────────────────────────────
 
-/**
- * Tracks the ECDH key exchange and AES-GCM session lifecycle.
- *
- * INACTIVE
- *   ↓
- * GENERATING_KEYS   ← local ECDH keypair generation
- *   ↓
- * WAITING_FOR_PEER  ← secure_key emitted, awaiting peer
- *   ↓
- * DERIVING_SECRET   ← peer key received, deriving AES key
- *   ↓
- * READY             ← AES-GCM session active
- *   ↓
- * FAILED            ← timeout/error after 3 retries
- *   ↓
- * DESTROYED         ← keys and state wiped
- */
+
 export type CryptoSessionState =
   | 'INACTIVE'
   | 'GENERATING_KEYS'
